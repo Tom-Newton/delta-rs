@@ -223,8 +223,11 @@ mod tests {
         table_to_update.update().await.unwrap();
 
         assert_eq!(
-            table_newest_version.get_files_iter().unwrap().collect_vec(),
-            table_to_update.get_files_iter().unwrap().collect_vec()
+            // Sort before comparing because it doesn't matter what order the files are in. The reason its different is
+            // because reading the newest version takes the order from the checkpoint but with incremental updates it
+            // uses the order of the commits.
+            table_newest_version.get_files_iter().unwrap().collect_vec().sort(),
+            table_to_update.get_files_iter().unwrap().collect_vec().sort()
         );
     }
     #[tokio::test]
