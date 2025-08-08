@@ -107,14 +107,17 @@ impl LogSegment {
         store_root.set_path("");
         let log_path = crate::logstore::object_store_path(&log_url)?;
 
-        let (mut commit_files, checkpoint_files) = list_log_files(
+        let mut commit_files = list_commit_files_between_versions(
             &log_store.root_object_store(None),
             &log_path,
             end_version,
-            Some(start_version),
+            start_version,
             &store_root,
         )
         .await?;
+        // If we included checkpoint files, then we would need to parse fewer commit files, but given that we need to
+        // avoid list_with_offset, we are better off just finding all the commit files.
+        let checkpoint_files = Vec::new();
 
         // remove all files above requested version
         if let Some(version) = end_version {
