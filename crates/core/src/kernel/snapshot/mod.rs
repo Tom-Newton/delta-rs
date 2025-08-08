@@ -145,7 +145,7 @@ impl Snapshot {
         }
         let log_segment =
             LogSegment::try_new_slice(self.version() + 1, target_version, log_store).await?;
-        if log_segment.commit_files.is_empty() && log_segment.checkpoint_files.is_empty() {
+        if log_segment.commit_files.is_empty() {
             return Ok(None);
         }
 
@@ -158,13 +158,8 @@ impl Snapshot {
             self.schema = self.metadata.parse_schema()?;
         }
 
-        if !log_segment.checkpoint_files.is_empty() {
-            self.log_segment.checkpoint_files = log_segment.checkpoint_files.clone();
-            self.log_segment.commit_files = log_segment.commit_files.clone();
-        } else {
-            for file in &log_segment.commit_files {
-                self.log_segment.commit_files.push_front(file.clone());
-            }
+        for file in &log_segment.commit_files {
+            self.log_segment.commit_files.push_front(file.clone());
         }
 
         self.log_segment.version = log_segment.version;
