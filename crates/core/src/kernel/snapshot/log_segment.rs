@@ -432,14 +432,15 @@ async fn list_log_files_with_checkpoint(
     Vec<(ObjectMeta, ParsedLogPath<Url>)>,
 )> {
     let commit_files =
-        list_commit_files_between_versions(fs_client, log_root, None, cp.version + 1).await?;
+        list_commit_files_between_versions(root_store, log_root, None, cp.version + 1, store_root)
+            .await?;
 
     let checkpoint_prefix = format!("{:020}", cp.version);
     let mut checkpoint_data_paths = Vec::new();
     match cp.parts {
         None => {
             let path = log_root.child(&*format!("{checkpoint_prefix}.checkpoint.parquet"));
-            checkpoint_data_paths.push(fs_client.head(&path).await?);
+            checkpoint_data_paths.push(root_store.head(&path).await?);
         }
         Some(parts) => {
             for i in 0..parts {
@@ -449,11 +450,18 @@ async fn list_log_files_with_checkpoint(
                     i + 1,
                     parts
                 ));
-                checkpoint_data_paths.push(fs_client.head(&path).await?);
+                checkpoint_data_paths.push(root_store.head(&path).await?);
             }
         }
     }
-    Ok((commit_files, checkpoint_data_paths))
+    Ok((
+        commit_files,
+        checkpoint_data_paths.into_iter().filter_map(|f| {
+            let file_url = store_root.join(f.location.as_ref()).ok()?;
+            let path = ParsedLogPath::try_from(file_url).ok()??;
+            Some((f, path))
+        }).collect()
+    ))
 }
 
 /// List relevant log files.
@@ -524,7 +532,8 @@ pub(super) async fn list_commit_files_between_versions(
     log_root: &Path,
     max_version: Option<i64>,
     start_version: i64,
-) -> DeltaResult<Vec<ObjectMeta>> {
+    store_root: &Url,
+) -> DeltaResult<Vec<(ObjectMeta, ParsedLogPath<Url>)>> {
     let max_version: i64 = max_version.unwrap_or(i64::MAX - 1);
     let mut version = start_version;
 
@@ -536,13 +545,17 @@ pub(super) async fn list_commit_files_between_versions(
             .await
         {
             Ok(meta) => {
-                if meta.location.is_commit_file() {
-                    commit_files.push(meta);
-                    if version >= max_version {
-                        break;
+                let file_url = store_root.join(meta.location.as_ref()).unwrap();
+                if let Some(parsed_path) = ParsedLogPath::try_from(file_url)? {
+                    if matches!(parsed_path.file_type, LogPathFileType::Commit) {
+                        commit_files.push((meta, parsed_path));
+                        if version >= max_version {
+                            break;
+                        }
+                        version += 1;
                     }
-                    version += 1;
                 }
+                continue;
             }
             Err(e) => {
                 match e {
@@ -555,7 +568,7 @@ pub(super) async fn list_commit_files_between_versions(
     }
 
     // NOTE: this will sort in reverse order
-    commit_files.sort_unstable_by(|a, b| b.location.cmp(&a.location));
+    commit_files.sort_unstable_by(|a, b| b.0.location.cmp(&a.0.location));
 
     Ok(commit_files)
 }
