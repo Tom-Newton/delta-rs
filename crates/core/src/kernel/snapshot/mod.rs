@@ -145,7 +145,7 @@ impl Snapshot {
         }
         let log_segment =
             LogSegment::try_new_slice(self.version() + 1, target_version, log_store).await?;
-        if log_segment.commit_files.is_empty() {
+        if log_segment.commit_files.is_empty() && log_segment.checkpoint_files.is_empty() {
             return Ok(None);
         }
 
