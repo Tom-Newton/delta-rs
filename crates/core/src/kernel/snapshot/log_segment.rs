@@ -457,14 +457,14 @@ async fn list_log_files_with_checkpoint(
             }
         }
     }
-    Ok((
-        commit_files,
-        checkpoint_data_paths.into_iter().filter_map(|f| {
-            let file_url = store_root.join(f.location.as_ref()).ok()?;
-            let path = ParsedLogPath::try_from(file_url).ok()??;
-            Some((f, path))
-        }).collect()
-    ))
+
+    let checkpoint_files = checkpoint_data_paths.into_iter().filter_map(|f| {
+        let file_url = store_root.join(f.location.as_ref()).ok()?;
+        let path = ParsedLogPath::try_from(file_url).ok()??;
+        Some((f, path))
+    }).collect();
+
+    Ok((commit_files, checkpoint_files))
 }
 
 /// List relevant log files.
