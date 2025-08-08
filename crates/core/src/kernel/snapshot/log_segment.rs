@@ -431,63 +431,29 @@ async fn list_log_files_with_checkpoint(
     Vec<(ObjectMeta, ParsedLogPath<Url>)>,
     Vec<(ObjectMeta, ParsedLogPath<Url>)>,
 )> {
-    let version_prefix = format!("{:020}", cp.version);
-    let start_from = log_root.child(version_prefix.as_str());
+    let commit_files =
+        list_commit_files_between_versions(fs_client, log_root, None, cp.version + 1).await?;
 
-    let files = root_store
-        .list_with_offset(Some(log_root), &start_from)
-        .try_collect::<Vec<_>>()
-        .await?
-        .into_iter()
-        .filter_map(|f| {
-            let file_url = store_root.join(f.location.as_ref()).ok()?;
-            let path = ParsedLogPath::try_from(file_url).ok()??;
-            Some((f, path))
-        })
-        .collect::<Vec<_>>();
-
-    let mut commit_files = files
-        .iter()
-        .filter_map(|f| {
-            if matches!(f.1.file_type, LogPathFileType::Commit) && f.1.version > cp.version as u64 {
-                Some(f.clone())
-            } else {
-                None
+    let checkpoint_prefix = format!("{:020}", cp.version);
+    let mut checkpoint_data_paths = Vec::new();
+    match cp.parts {
+        None => {
+            let path = log_root.child(&*format!("{checkpoint_prefix}.checkpoint.parquet"));
+            checkpoint_data_paths.push(fs_client.head(&path).await?);
+        }
+        Some(parts) => {
+            for i in 0..parts {
+                let path = log_root.child(&*format!(
+                    "{}.checkpoint.{:010}.{:010}.parquet",
+                    checkpoint_prefix,
+                    i + 1,
+                    parts
+                ));
+                checkpoint_data_paths.push(fs_client.head(&path).await?);
             }
-        })
-        .collect_vec();
-
-    // NOTE: this will sort in reverse order
-    commit_files.sort_unstable_by(|a, b| b.0.location.cmp(&a.0.location));
-
-    let checkpoint_files = files
-        .iter()
-        .filter_map(|f| {
-            if matches!(
-                f.1.file_type,
-                // UUID named checkpoints are part of the v2 spec and can currently not be parsed.
-                // This will be supported once we do kernel log replay.
-                // | LogPathFileType::UuidCheckpoint(_)
-                LogPathFileType::SinglePartCheckpoint | LogPathFileType::MultiPartCheckpoint { .. }
-            ) && f.1.version == cp.version as u64
-            {
-                Some(f.clone())
-            } else {
-                None
-            }
-        })
-        .collect_vec();
-
-    if checkpoint_files.len() != cp.parts.unwrap_or(1) as usize {
-        let msg = format!(
-            "Number of checkpoint files '{}' is not equal to number of checkpoint metadata parts '{:?}'",
-            checkpoint_files.len(),
-            cp.parts
-        );
-        Err(DeltaTableError::MetadataError(msg))
-    } else {
-        Ok((commit_files, checkpoint_files))
+        }
     }
+    Ok((commit_files, checkpoint_data_paths))
 }
 
 /// List relevant log files.
@@ -551,6 +517,47 @@ pub(super) async fn list_log_files(
     commit_files.sort_unstable_by(|a, b| b.0.location.cmp(&a.0.location));
 
     Ok((commit_files, checkpoint_files))
+}
+
+pub(super) async fn list_commit_files_between_versions(
+    fs_client: &dyn ObjectStore,
+    log_root: &Path,
+    max_version: Option<i64>,
+    start_version: i64,
+) -> DeltaResult<Vec<ObjectMeta>> {
+    let max_version: i64 = max_version.unwrap_or(i64::MAX - 1);
+    let mut version = start_version;
+
+    let mut commit_files = Vec::with_capacity(25);
+
+    loop {
+        match fs_client
+            .head(&log_root.child(format!("{version:020}.json")))
+            .await
+        {
+            Ok(meta) => {
+                if meta.location.is_commit_file() {
+                    commit_files.push(meta);
+                    if version >= max_version {
+                        break;
+                    }
+                    version += 1;
+                }
+            }
+            Err(e) => {
+                match e {
+                    ObjectStoreError::NotFound { .. } => {}
+                    _ => return Err(DeltaTableError::from(e)),
+                }
+                break;
+            }
+        }
+    }
+
+    // NOTE: this will sort in reverse order
+    commit_files.sort_unstable_by(|a, b| b.location.cmp(&a.location));
+
+    Ok(commit_files)
 }
 
 #[cfg(test)]
