@@ -5,7 +5,7 @@ use deltalake::operations::collect_sendable_stream;
 use deltalake::{DeltaTable, DeltaTableError};
 use url::Url;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
     deltalake_catalog_unity::register_handlers(None);
     deltalake_azure::register_handlers(None);
@@ -30,10 +30,8 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
     )
     .await?;
 
-    let (_table, stream) = ops.scan_table().await?;
-    let data: Vec<RecordBatch> = collect_sendable_stream(stream).await?;
-
-    println!("{data:?}");
-
+    // for file in ops.get_file_uris()? {
+    //     println!("{file}");
+    // }
     Ok(())
 }
