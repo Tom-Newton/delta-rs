@@ -1,7 +1,3 @@
-use std::println;
-
-use deltalake::arrow::record_batch::RecordBatch;
-use deltalake::operations::collect_sendable_stream;
 use deltalake::{DeltaTable, DeltaTableError};
 use url::Url;
 
@@ -30,8 +26,8 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
     )
     .await?;
 
-    // for file in ops.get_file_uris()? {
-    //     println!("{file}");
-    // }
+    for file in ops.get_file_uris()? {
+        println!("{file}");
+    }
     Ok(())
 }
