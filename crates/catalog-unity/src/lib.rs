@@ -69,6 +69,12 @@ pub enum UnityCatalogError {
         source: reqwest_middleware::Error,
     },
 
+    #[error("Failed to deserialize response: {source}. Response body: {body}")]
+    ResponseDeserializationError {
+        source: serde_json::Error,
+        body: String,
+    },
+
     /// Request returned error response
     #[error("Invalid table error: {error_code}: {message}")]
     InvalidTable {
@@ -602,20 +608,8 @@ impl UnityCatalogBuilder {
         }
 
         if let Some(token) = self.bearer_token.as_ref() {
+            println!("bearer token");
             return Some(CredentialProvider::BearerToken(token.clone()));
-        }
-
-        if let (Some(client_id), Some(client_secret), Some(workspace_host)) =
-            (&self.client_id, &self.client_secret, &self.workspace_url)
-        {
-            return Some(CredentialProvider::TokenCredential(
-                Default::default(),
-                Box::new(WorkspaceOAuthProvider::new(
-                    client_id,
-                    client_secret,
-                    workspace_host,
-                )),
-            ));
         }
 
         if let (Some(client_id), Some(client_secret), Some(authority_id)) = (
@@ -623,6 +617,7 @@ impl UnityCatalogBuilder {
             self.client_secret.as_ref(),
             self.authority_id.as_ref(),
         ) {
+            println!("client secret");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(ClientSecretOAuthProvider::new(
@@ -633,7 +628,21 @@ impl UnityCatalogBuilder {
                 )),
             ));
         }
+        if let (Some(client_id), Some(client_secret), Some(workspace_host)) =
+            (&self.client_id, &self.client_secret, &self.workspace_url)
+        {
+            println!("workspace oath");
+            return Some(CredentialProvider::TokenCredential(
+                Default::default(),
+                Box::new(WorkspaceOAuthProvider::new(
+                    client_id,
+                    client_secret,
+                    workspace_host,
+                )),
+            ));
+        }
         if self.use_azure_cli {
+            println!("azure cli");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(AzureCliCredential::new()),
@@ -868,7 +877,16 @@ impl UnityCatalog {
             .header(AUTHORIZATION, token)
             .send()
             .await?;
-        let table: GetTableResponse = resp.json().await?;
+        let resp_text = resp.text().await?;
+        let table = match serde_json::from_str::<GetTableResponse>(&resp_text) {
+            Ok(table) => table,
+            Err(err) => {
+                return Err(UnityCatalogError::ResponseDeserializationError {
+                    source: err,
+                    body: resp_text,
+                });
+            }
+        };
         self.table_cache.insert(full_path, table.clone());
         Ok(table)
     }
