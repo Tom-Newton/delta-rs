@@ -23,8 +23,7 @@ use tracing::instrument;
 use typed_builder::TypedBuilder;
 
 use crate::credential::{
-    AzureCliCredential, ClientSecretOAuthProvider, CredentialProvider, TokenCredential,
-    WorkspaceOAuthProvider,
+    AzureCliCredential, ClientSecretOAuthProvider, CredentialProvider, TokenCredential, WorkspaceOAuthProvider, WorkloadIdentityOAuthProvider
 };
 use crate::models::{
     ErrorResponse, GetSchemaResponse, GetTableResponse, ListCatalogsResponse, ListSchemasResponse,
@@ -628,6 +627,22 @@ impl UnityCatalogBuilder {
                 )),
             ));
         }
+
+        if let (Some(client_id), Some(federated_token_file), Some(authority_id)) =
+            (&self.client_id, &self.federated_token_file, &self.authority_id)
+        {
+            println!("workload identity");
+            return Some(CredentialProvider::TokenCredential(
+                Default::default(),
+                Box::new(WorkloadIdentityOAuthProvider::new(
+                    client_id,
+                    federated_token_file,
+                    authority_id,
+                    self.authority_host.as_ref(),
+                )),
+            ));
+        }
+
         if let (Some(client_id), Some(client_secret), Some(workspace_host)) =
             (&self.client_id, &self.client_secret, &self.workspace_url)
         {
