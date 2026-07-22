@@ -68,6 +68,12 @@ pub enum UnityCatalogError {
         source: reqwest_middleware::Error,
     },
 
+    #[error("Failed to deserialize response: {source}. Response body: {body}")]
+    ResponseDeserializationError {
+        source: serde_json::Error,
+        body: String,
+    },
+
     /// Request returned error response
     #[error("Invalid table error: {error_code}: {message}")]
     InvalidTable {
@@ -594,7 +600,6 @@ impl UnityCatalogBuilder {
             return Some(CredentialProvider::BearerToken(token.clone()));
         }
 
-
         if let (Some(client_id), Some(client_secret), Some(authority_id)) = (
             self.client_id.as_ref(),
             self.client_secret.as_ref(),
@@ -860,7 +865,16 @@ impl UnityCatalog {
             .header(AUTHORIZATION, token)
             .send()
             .await?;
-        let table: GetTableResponse = resp.json().await?;
+        let resp_text = resp.text().await?;
+        let table = match serde_json::from_str::<GetTableResponse>(&resp_text) {
+            Ok(table) => table,
+            Err(err) => {
+                return Err(UnityCatalogError::ResponseDeserializationError {
+                    source: err,
+                    body: resp_text,
+                });
+            }
+        };
         self.table_cache.insert(full_path, table.clone());
         Ok(table)
     }
