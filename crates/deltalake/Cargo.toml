@@ -53,6 +53,7 @@ python = ["deltalake-core/python"]
 s3-native-tls = ["deltalake-aws/native-tls", "native-tls"]
 s3 = ["deltalake-aws/rustls", "rustls"]
 unity-experimental = ["deltalake-catalog-unity"]
+unity-azure = ["unity-experimental", "azure", "deltalake-catalog-unity/azure"]
 # Generic OpenDAL plumbing (no service). Enable a specific backend with one of
 # the `opendal-*` features below; each auto-registers its scheme.
 opendal = ["deltalake-opendal"]
@@ -89,7 +90,7 @@ required-features = ["datafusion"]
 
 [[example]]
 name = "load_table"
-required-features = ["datafusion", "deltalake-catalog-unity", "deltalake-azure"]
+required-features = ["datafusion", "unity-azure"]
 
 [[example]]
 name = "recordbatch-writer"
