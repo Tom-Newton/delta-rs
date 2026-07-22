@@ -89,7 +89,7 @@ required-features = ["datafusion"]
 
 [[example]]
 name = "load_table"
-required-features = ["datafusion"]
+required-features = ["datafusion", "deltalake-catalog-unity", "deltalake-azure"]
 
 [[example]]
 name = "recordbatch-writer"
