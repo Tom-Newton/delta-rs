@@ -1,4 +1,6 @@
+use deltalake::arrow::record_batch::RecordBatch;
 use deltalake::{DeltaTable, DeltaTableError};
+use futures::TryStreamExt;
 use url::Url;
 
 #[tokio::main]
@@ -7,7 +9,7 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
     deltalake_azure::register_handlers(None);
     let table_url = Url::parse("uc://prod_data_pipeline.wayve_corpus.all_data")
         .map_err(|e| DeltaTableError::InvalidTableLocation(e.to_string()))?;
-    let ops = DeltaTable::try_from_url_with_storage_options(
+    let table = DeltaTable::try_from_url_with_storage_options(
         table_url,
         std::collections::HashMap::from([
             (
@@ -18,16 +20,21 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
                 String::from("authority_id"),
                 String::from("134c99bd-21f6-453d-9000-0ddb0758f035"),
             ),
-            (
-                String::from("client_id"),
-                String::from("19732e5c-f2d7-4578-9cec-9d402da6a39e"),
-            ),
         ]),
     )
     .await?;
 
-    for file in ops.get_file_uris()? {
-        println!("{file}");
+    let (_table, mut stream) = table.scan_table().await?;
+    if let Some(batch) = stream.try_next().await? {
+        let batch: RecordBatch = batch;
+        println!(
+            "read {} rows across {} columns from the first parquet batch",
+            batch.num_rows(),
+            batch.num_columns(),
+        );
+    } else {
+        println!("table contains no data");
     }
+
     Ok(())
 }

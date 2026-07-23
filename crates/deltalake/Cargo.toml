@@ -81,6 +81,7 @@ rustls = ["deltalake-core/rustls"]
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 chrono = { workspace = true, default-features = false, features = ["clock"] }
+futures = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 

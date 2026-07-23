@@ -56,6 +56,9 @@ def test_read_table_with_edge_timestamps():
     )
     assert len(list(dataset.get_fragments(predicate))) == 1
 
+def test_read_unity_catalog():
+    table = DeltaTable("uc://prod_data_pipeline.key.cameras")
+    table.to_pyarrow_table(partitions=[("run_date_iso", "=", "2025-06-22")], columns=["run_id", "timestamp_unixus"])
 
 def test_read_simple_table_to_dict():
     table_path = "../crates/test/tests/data/simple_table"
