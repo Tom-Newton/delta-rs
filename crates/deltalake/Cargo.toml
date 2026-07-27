@@ -66,7 +66,7 @@ required-features = ["datafusion"]
 
 [[example]]
 name = "load_table"
-required-features = ["datafusion"]
+required-features = ["datafusion", "azure"]
 
 [[example]]
 name = "recordbatch-writer"

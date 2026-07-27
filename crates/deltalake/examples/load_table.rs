@@ -1,20 +1,18 @@
-use deltalake::arrow::record_batch::RecordBatch;
-use deltalake::operations::collect_sendable_stream;
-use deltalake::DeltaOps;
+use deltalake::{DeltaTableBuilder, DeltaTableError};
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
-    // Create a delta operations client pointing at an un-initialized location.
-    let ops = if let Ok(table_uri) = std::env::var("TABLE_URI") {
-        DeltaOps::try_from_uri(table_uri).await?
-    } else {
-        DeltaOps::try_from_uri("../test/tests/data/delta-0.8.0").await?
-    };
+#[tokio::main]
+async fn main() -> Result<(), DeltaTableError> {
+    deltalake_azure::register_handlers(None);
+    let table_uri =
+        "abfss://databricks@wayveproddataset.dfs.core.windows.net/delta/wayve_corpus/all_data";
 
-    let (_table, stream) = ops.load().await?;
-    let data: Vec<RecordBatch> = collect_sendable_stream(stream).await?;
-
-    println!("{data:?}");
+    let _table = DeltaTableBuilder::from_uri(table_uri)
+        .with_storage_options(std::collections::HashMap::from([(
+            String::from("use_azure_cli"),
+            String::from("true"),
+        )]))
+        .load()
+        .await?;
 
     Ok(())
 }
