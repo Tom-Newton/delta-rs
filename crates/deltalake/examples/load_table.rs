@@ -16,6 +16,10 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
                 String::from("workspace_url"),
                 String::from("https://adb-7835963732836817.17.azuredatabricks.net"),
             ),
+            (
+                String::from("use_azure_cli"),
+                String::from("true"),
+            ),
         ]),
     )
     .await?;
