@@ -24,17 +24,17 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
     )
     .await?;
 
-    let (_table, mut stream) = table.scan_table().await?;
-    if let Some(batch) = stream.try_next().await? {
-        let batch: RecordBatch = batch;
-        println!(
-            "read {} rows across {} columns from the first parquet batch",
-            batch.num_rows(),
-            batch.num_columns(),
-        );
-    } else {
-        println!("table contains no data");
-    }
+    // let (_table, mut stream) = table.scan_table().await?;
+    // if let Some(batch) = stream.try_next().await? {
+    //     let batch: RecordBatch = batch;
+    //     println!(
+    //         "read {} rows across {} columns from the first parquet batch",
+    //         batch.num_rows(),
+    //         batch.num_columns(),
+    //     );
+    // } else {
+    //     println!("table contains no data");
+    // }
 
     Ok(())
 }
