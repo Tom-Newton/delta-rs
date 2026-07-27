@@ -16,10 +16,6 @@ async fn main() -> Result<(), deltalake::errors::DeltaTableError> {
                 String::from("workspace_url"),
                 String::from("https://adb-7835963732836817.17.azuredatabricks.net"),
             ),
-            (
-                String::from("authority_id"),
-                String::from("134c99bd-21f6-453d-9000-0ddb0758f035"),
-            ),
         ]),
     )
     .await?;
