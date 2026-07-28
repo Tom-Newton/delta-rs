@@ -56,6 +56,19 @@ def test_read_table_with_edge_timestamps():
     )
     assert len(list(dataset.get_fragments(predicate))) == 1
 
+import os
+
+def test_read_unity_catalog():
+    print(os.getpid())
+    breakpoint()
+
+    table = DeltaTable("uc://prod_data_pipeline.key.cameras", storage_options={
+        'unity_client_id': '39f082da-5452-430a-aded-f8cbefc0b027',
+        'workspace_url': 'https://adb-7835963732836817.17.azuredatabricks.net',
+        'authority_id': '134c99bd-21f6-453d-9000-0ddb0758f035',
+    })
+    pyarrow_table = table.to_pyarrow_table(partitions=[("run_date_iso", "=", "2025-06-22")], columns=["run_id", "timestamp_unixus"])
+    print(pyarrow_table)
 
 def test_read_simple_table_to_dict():
     table_path = "../crates/test/tests/data/simple_table"
