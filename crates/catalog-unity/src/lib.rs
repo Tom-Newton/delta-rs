@@ -422,6 +422,9 @@ impl UnityCatalogBuilder {
         options: I,
     ) -> DataCatalogResult<Self> {
         for (key, value) in options {
+            if UnityCatalogConfigKey::from_str(key.as_ref()).is_err() {
+                continue;
+            }
             self = self.try_with_option(key, value)?;
         }
         Ok(self)
