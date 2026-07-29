@@ -19,7 +19,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::credential::{
-    AzureCliCredential, ClientSecretOAuthProvider, CredentialProvider, WorkspaceOAuthProvider,
+    AzureCliCredential, ClientSecretOAuthProvider, CredentialProvider, WorkspaceOAuthProvider, WorkloadIdentityOAuthProvider
 };
 use crate::models::{
     ErrorResponse, GetSchemaResponse, GetTableResponse, ListCatalogsResponse, ListSchemasResponse,
@@ -579,22 +579,7 @@ impl UnityCatalogBuilder {
 
     fn get_credential_provider(&self) -> Option<CredentialProvider> {
         if let Some(token) = self.bearer_token.as_ref() {
-            println!("bearer token");
             return Some(CredentialProvider::BearerToken(token.clone()));
-        }
-
-        if let (Some(client_id), Some(client_secret), Some(workspace_host)) =
-            (&self.client_id, &self.client_secret, &self.workspace_url)
-        {
-            println!("workspace oath");
-            return Some(CredentialProvider::TokenCredential(
-                Default::default(),
-                Box::new(WorkspaceOAuthProvider::new(
-                    client_id,
-                    client_secret,
-                    workspace_host,
-                )),
-            ));
         }
 
         if let (Some(client_id), Some(client_secret), Some(authority_id)) = (
@@ -602,7 +587,6 @@ impl UnityCatalogBuilder {
             self.client_secret.as_ref(),
             self.authority_id.as_ref(),
         ) {
-            println!("client secret");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(ClientSecretOAuthProvider::new(
@@ -613,8 +597,35 @@ impl UnityCatalogBuilder {
                 )),
             ));
         }
+
+        if let (Some(client_id), Some(federated_token_file), Some(authority_id)) =
+            (&self.client_id, &self.federated_token_file, &self.authority_id)
+        {
+            return Some(CredentialProvider::TokenCredential(
+                Default::default(),
+                Box::new(WorkloadIdentityOAuthProvider::new(
+                    client_id,
+                    federated_token_file,
+                    authority_id,
+                    self.authority_host.as_ref(),
+                )),
+            ));
+        }
+
+        if let (Some(client_id), Some(client_secret), Some(workspace_host)) =
+            (&self.client_id, &self.client_secret, &self.workspace_url)
+        {
+            return Some(CredentialProvider::TokenCredential(
+                Default::default(),
+                Box::new(WorkspaceOAuthProvider::new(
+                    client_id,
+                    client_secret,
+                    workspace_host,
+                )),
+            ));
+        }
+
         if self.use_azure_cli {
-            println!("azure cli");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(AzureCliCredential::new()),

@@ -305,10 +305,11 @@ impl WorkloadIdentityOAuthProvider {
         client_id: impl Into<String>,
         federated_token_file: impl Into<String>,
         tenant_id: impl AsRef<str>,
-        authority_host: Option<String>,
+        authority_host: Option<impl Into<String>>,
     ) -> Self {
-        let authority_host =
-            authority_host.unwrap_or_else(|| authority_hosts::AZURE_PUBLIC_CLOUD.to_owned());
+        let authority_host = authority_host
+            .map(|h| h.into())
+            .unwrap_or_else(|| authority_hosts::AZURE_PUBLIC_CLOUD.to_owned());
 
         Self {
             token_url: format!("{authority_host}/{}/oauth2/v2.0/token", tenant_id.as_ref()),
