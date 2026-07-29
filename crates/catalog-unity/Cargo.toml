@@ -50,4 +50,3 @@ datafusion = ["dep:datafusion", "deltalake-core/datafusion", "moka"]
 name = "uc_example"
 path = "examples/uc_example.rs"
 required-features = ["datafusion", "aws"]
-

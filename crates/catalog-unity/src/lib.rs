@@ -535,6 +535,7 @@ impl UnityCatalogBuilder {
     /// Unity Catalog table.
     pub async fn get_uc_location_and_token(
         table_uri: &str,
+        storage_options: Option<&HashMap<String, String>>,
     ) -> Result<(String, HashMap<String, String>), UnityCatalogError> {
         let uri_parts: Vec<&str> = table_uri[5..].split('.').collect();
         if uri_parts.len() != 3 {
@@ -547,7 +548,15 @@ impl UnityCatalogBuilder {
         let database_name = uri_parts[1];
         let table_name = uri_parts[2];
 
-        let unity_catalog = UnityCatalogBuilder::from_env().build()?;
+        let unity_catalog = if let Some(options) = storage_options {
+            let mut builder = UnityCatalogBuilder::from_env();
+            builder =
+                builder.try_with_options(options.iter().map(|(k, v)| (k.as_str(), v.as_str())))?;
+            builder.build()?
+        } else {
+            UnityCatalogBuilder::from_env().build()?
+        };
+
         let storage_location = unity_catalog
             .get_table_storage_location(Some(catalog_id.to_string()), database_name, table_name)
             .await?;
@@ -567,12 +576,14 @@ impl UnityCatalogBuilder {
 
     fn get_credential_provider(&self) -> Option<CredentialProvider> {
         if let Some(token) = self.bearer_token.as_ref() {
+            println!("bearer token");
             return Some(CredentialProvider::BearerToken(token.clone()));
         }
 
         if let (Some(client_id), Some(client_secret), Some(workspace_host)) =
             (&self.client_id, &self.client_secret, &self.workspace_url)
         {
+            println!("workspace oath");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(WorkspaceOAuthProvider::new(
@@ -588,6 +599,7 @@ impl UnityCatalogBuilder {
             self.client_secret.as_ref(),
             self.authority_id.as_ref(),
         ) {
+            println!("client secret");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(ClientSecretOAuthProvider::new(
@@ -599,6 +611,7 @@ impl UnityCatalogBuilder {
             ));
         }
         if self.use_azure_cli {
+            println!("azure cli");
             return Some(CredentialProvider::TokenCredential(
                 Default::default(),
                 Box::new(AzureCliCredential::new()),
@@ -841,7 +854,7 @@ impl ObjectStoreFactory for UnityCatalogFactory {
         config: &StorageConfig,
     ) -> DeltaResult<(ObjectStoreRef, Path)> {
         let (table_path, temp_creds) = UnityCatalogBuilder::execute_uc_future(
-            UnityCatalogBuilder::get_uc_location_and_token(table_uri.as_str()),
+            UnityCatalogBuilder::get_uc_location_and_token(table_uri.as_str(), Some(&config.raw)),
         )??;
 
         let mut storage_options = config.raw.clone();

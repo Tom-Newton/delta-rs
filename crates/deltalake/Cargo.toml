@@ -54,6 +54,7 @@ unity-experimental = ["deltalake-catalog-unity"]
 lakefs = ["deltalake-lakefs"]
 native-tls = ["deltalake-core/native-tls"]
 rustls = ["deltalake-core/rustls"]
+unity-azure = ["unity-experimental", "azure", "deltalake-catalog-unity/azure"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
@@ -66,7 +67,7 @@ required-features = ["datafusion"]
 
 [[example]]
 name = "load_table"
-required-features = ["datafusion", "azure"]
+required-features = ["datafusion", "azure", "unity-azure"]
 
 [[example]]
 name = "recordbatch-writer"
